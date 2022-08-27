@@ -1,34 +1,67 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import './App.css'
+import React, { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
 
-function App() {
-  const [count, setCount] = useState(0)
+import './App.css';
 
-  return (
-    <div className="App">
-      <div>
-        <a href="https://vitejs.dev" target="_blank">
-          <img src="/vite.svg" className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://reactjs.org" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </div>
-  )
+const socket = io('http://localhost:3001');
+
+interface Message {
+  id: string;
+  userId: string;
+  message: string;
 }
 
-export default App
+function App() {
+  const [userId, setUserId] = useState('');
+  const [message, setMessage] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  useEffect(() => {
+    if (userId) return;
+
+    socket.on('user_id', (userId) => setUserId(userId));
+  }, []);
+
+  useEffect(() => {
+    socket.on('receive_message', (data) =>
+      setMessages((prevState) => [...prevState, data]),
+    );
+  }, []);
+
+  const sendMessage = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    socket.emit('send_message', message);
+  };
+
+  return (
+    <div className='App'>
+      <h2>Your ID: {userId}</h2>
+      <form onSubmit={sendMessage}>
+        <input
+          type='text'
+          placeholder='Send message'
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+        />
+        <button>Send</button>
+      </form>
+      <div>
+        <h2>Messages</h2>
+        {!messages.length && <p>No messages received yet</p>}
+        <ul>
+          {messages.map((x) => (
+            <li key={x.id}>
+              <span className='sender'>
+                {x.userId === userId ? 'You' : 'Anon'}:{' '}
+              </span>
+              {x.message}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+export default App;
